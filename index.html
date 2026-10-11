@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3-Octave Synthesizer Piano</title>
+    <!-- Tailwind CSS for modern, sleek UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        /* Custom styles for piano keys to ensure smooth layout & responsive touches */
+        .piano-container {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .white-key {
+            position: relative;
+            background: linear-gradient(to bottom, #ffffff 0%, #f1f5f9 100%);
+            border: 1px solid #cbd5e1;
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 4px 6px -1px rgba(0,0,0,0.1);
+            transition: background 0.08s ease, transform 0.05s ease, box-shadow 0.05s ease;
+        }
+        .white-key:hover {
+            background: linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%);
+        }
+        .white-key.active, .white-key:active {
+            background: linear-gradient(to bottom, #cbd5e1 0%, #94a3b8 100%) !important;
+            transform: translateY(2px);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .black-key {
+            position: absolute;
+            z-index: 10;
+            background: linear-gradient(to bottom, #334155 0%, #0f172a 100%);
+            border: 1px solid #1e293b;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+            transition: background 0.08s ease, transform 0.05s ease;
+        }
+        .black-key:hover {
+            background: linear-gradient(to bottom, #475569 0%, #1e293b 100%);
+        }
+        .black-key.active, .black-key:active {
+            background: linear-gradient(to bottom, #0f172a 0%, #020617 100%) !important;
+            transform: translateY(2px);
+            box-shadow: inset 0 2px 3px rgba(0,0,0,0.4);
+        }
+        /* Custom scrollbar for horizontal keyboard scrolling on smaller screens */
+        .keyboard-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+        .keyboard-scroll::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        .keyboard-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .keyboard-scroll::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Header & Controls -->
+    <header class="w-full bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 sticky top-0 z-30 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+            
+            <!-- Title & Status -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2.5 rounded-xl shadow-inner flex items-center justify-center text-white font-bold text-xl">
+                    🎹
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 via-sky-300 to-teal-300 bg-clip-text text-transparent">
+                        WebSynth Piano 3.0
+                    </h1>
+                    <p class="text-xs text-slate-400">3-Octave Polyphonic Web Audio Synthesizer</p>
+                </div>
+            </div>
+
+            <!-- 10 Timbre/Sound Preset Buttons -->
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <span class="text-xs font-semibold text-slate-400 mr-1 hidden xl:inline">Timbres:</span>
+                <!-- Buttons will be dynamically generated or styled here -->
+                <div id="presets-container" class="flex flex-wrap justify-center gap-1.5">
+                    <!-- Populated via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Master Volume & Effects -->
+            <div class="flex items-center gap-4 bg-slate-800/60 px-4 py-2 rounded-xl border border-slate-700/50">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-slate-300 font-medium">Volume</span>
+                    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.7" 
+                           class="w-20 accent-indigo-500 cursor-pointer">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-slate-300 font-medium">Sustain</span>
+                    <button id="sustain-btn" class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition border border-slate-600">
+                        Off
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col items-center justify-center gap-6 my-auto">
+        
+        <!-- Info / Keyboard Guidance Card -->
+        <div class="w-full bg-slate-800/40 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-xl backdrop-blur-sm flex flex-col items-center">
+            
+            <!-- Visualizer / LED display panel -->
+            <div class="w-full max-w-2xl bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 mb-6 flex items-center justify-between shadow-inner">
+                <div class="flex items-center space-x-3">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
+                    <span id="current-sound-label" class="text-sm font-semibold tracking-wide text-indigo-300">Acoustic Grand Piano</span>
+                </div>
+                <div class="text-xs text-slate-400 font-mono bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
+                    Active Note: <span id="active-note-display" class="text-emerald-400 font-bold">-</span>
+                </div>
+            </div>
+
+            <!-- Piano Keyboard Wrapper with Horizontal Scroll Support -->
+            <div class="w-full overflow-x-auto keyboard-scroll pb-4 pt-2 flex justify-center">
+                <div id="piano-keyboard" class="piano-container relative flex bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-2xl">
+                    <!-- Piano keys generated via script -->
+                </div>
+            </div>
+
+            <!-- Keyboard Controls Legend -->
+            <div class="mt-4 flex flex-wrap justify-center gap-3 text-xs text-slate-400 text-center">
+                <span class="bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700/50">
+                    ⌨️ <b>Row 1 (Z...M):</b> Octave 3
+                </span>
+                <span class="bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700/50">
+                    ⌨️ <b>Row 2 (Q...U):</b> Octave 4
+                </span>
+                <span class="bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700/50">
+                    ⌨️ <b>Row 3 (1...8):</b> Octave 5
+                </span>
+                <span class="bg-slate-800/80 px-3 py-1 rounded-lg border border-slate-700/50">
+                    🖱️ Click / Touch keys to play
+                </span>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-4 border-t border-slate-800/80 text-xs text-slate-500">
+        Web Audio API Synthesizer • Designed for high responsiveness and rich harmonic timbres.
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Audio Context initialization on first user interaction
+        let audioCtx = null;
+        let masterGain = null;
+        let activeNotes = new Map(); // Track currently playing oscillator nodes and envelopes
+        let sustainActive = false;
+        let currentPreset = 'acoustic';
+
+        // 10 Musical Sound / Timbre Presets Definition
+        const presets = {
+            acoustic: {
+                name: 'Acoustic Grand',
+                desc: 'Warm piano simulation with rich harmonics',
+                create: (freq, ctx, output) => {
+                    // Multi-oscillator setup for acoustic piano warmth
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'triangle';
+                    osc2.type = 'sine';
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    // Detune slightly for chorus warmth
+                    osc2.detune.setValueAtTime(3, ctx.currentTime);
+
+                    // Envelope
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.1, now + 0.8);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.3);
+                        osc1.stop(time + 0.3);
+                        osc2.stop(time + 0.3);
+                    }};
+                }
+            },
+            rhodes: {
+                name: 'Electric Piano',
+                desc: 'Classic bell-like Rhodes electric piano timbre',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const modulator = ctx.createOscillator();
+                    const modGain = ctx.createGain();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sine';
+                    modulator.type = 'sine';
+                    
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                    modulator.frequency.setValueAtTime(freq * 2, ctx.currentTime);
+                    modGain.gain.setValueAtTime(freq * 1.5, ctx.currentTime);
+
+                    modulator.connect(modGain);
+                    modGain.connect(osc.frequency);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.6, now + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.05, now + 1.2);
+
+                    osc.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    modulator.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.4);
+                        osc.stop(time + 0.4);
+                        modulator.stop(time + 0.4);
+                    }};
+                }
+            },
+            synthLead: {
+                name: 'Synth Lead',
+                desc: 'Piercing sawtooth lead with lowpass filter sweep',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(800, ctx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(3500, ctx.currentTime + 0.2);
+                    filter.Q.value = 6;
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.35, now + 0.04);
+                    gain.gain.setValueAtTime(0.3, now + 0.2);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+                        osc.stop(time + 0.25);
+                    }};
+                }
+            },
+            synthBass: {
+                name: 'Synth Bass',
+                desc: 'Subterranean square wave bass with punchy filter',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq / 2, ctx.currentTime); // Lower octave bass
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(200, ctx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+                    filter.Q.value = 8;
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.2);
+                        osc.stop(time + 0.2);
+                    }};
+                }
+            },
+            organ: {
+                name: 'Pipe Organ',
+                desc: 'Full harmonic church organ timbre',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const osc3 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sine';
+                    osc2.type = 'sawtooth';
+                    osc3.type = 'square';
+
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime); // Octave up
+                    osc3.frequency.setValueAtTime(freq * 1.5, ctx.currentTime); // Fifth
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.25, now + 0.05);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    osc3.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc3.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.08);
+                        osc1.stop(time + 0.08);
+                        osc2.stop(time + 0.08);
+                        osc3.stop(time + 0.08);
+                    }};
+                }
+            },
+            marimba: {
+                name: 'Marimba',
+                desc: 'Wooden mallet percussion timbre',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.7, now + 0.005);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+                    osc.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        osc.stop(time);
+                    }};
+                }
+            },
+            pizzicato: {
+                name: 'Plucked String',
+                desc: 'Orchestral pizzicato string simulation',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(freq * 3, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.5, now + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        osc.stop(time);
+                    }};
+                }
+            },
+            bell: {
+                name: 'Crystal Bell',
+                desc: 'Shimmering high-frequency metallic bell tone',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq * 4, ctx.currentTime); // Higher overtone
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.4, now + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
+
+                    osc.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.5);
+                        osc.stop(time + 0.5);
+                    }};
+                }
+            },
+            chiptune: {
+                name: 'Chiptune Square',
+                desc: '8-bit retro gaming square wave sound',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0.3, now);
+
+                    osc.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        osc.stop(time);
+                    }};
+                }
+            },
+            warmPad: {
+                name: 'Warm Synth Pad',
+                desc: 'Lush atmospheric synthesizer pad',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'sawtooth';
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq * 1.008, ctx.currentTime); // Chorus detune
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(1000, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.25, now + 0.4); // Slow attack
+
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.8); // Slow release
+                        osc1.stop(time + 0.8);
+                        osc2.stop(time + 0.8);
+                    }};
+                }
+            }
+        };
+
+        // Define 3 Octaves of Notes (Octave 3, 4, 5) -> Total 36 notes
+        // Starting from C3 (130.81 Hz) up to B5 (~987.77 Hz)
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const pianoKeysData = [];
+
+        // Generate 3 octaves: Octave 3, 4, 5
+        const startOctave = 3;
+        const numOctaves = 3;
+
+        for (let oct = 0; oct < numOctaves; oct++) {
+            const currentOctaveNum = startOctave + oct;
+            for (let i = 0; i < noteNames.length; i++) {
+                const note = noteNames[i];
+                const noteFullName = `${note}${currentOctaveNum}`;
+                
+                // Calculate frequency using A4 = 440Hz standard tuning
+                // MIDI note number formula: midi = 12 * (octave + 1) + semitoneOffset
+                const semitoneOffsets = {'C':0, 'C#':1, 'D':2, 'D#':3, 'E':4, 'F':5, 'F#':6, 'G':7, 'G#':8, 'A':9, 'A#':10, 'B':11};
+                const midiNumber = 12 * (currentOctaveNum + 1) + semitoneOffsets[note];
+                const frequency = 440 * Math.pow(2, (midiNumber - 69) / 12);
+
+                const isBlack = note.includes('#');
+
+                pianoKeysData.push({
+                    note: noteFullName,
+                    freq: frequency,
+                    isBlack: isBlack,
+                    // Assign computer keyboard shortcuts where available
+                    keyboardKey: getKeyboardShortcut(currentOctaveNum, note)
+                });
+            }
+        }
+
+        // Helper to map computer keys to specific piano notes
+        function getKeyboardShortcut(octave, note) {
+            // Octave 3 mapped to bottom row (Z, S, X, D, C, V, G, B, H, N, J, M)
+            const row3 = {'C':'z', 'C#':'s', 'D':'x', 'D#':'d', 'E':'c', 'F':'v', 'F#':'g', 'G':'b', 'G#':'h', 'A':'n', 'A#':'j', 'B':'m'};
+            // Octave 4 mapped to middle row (Q, 2, W, 3, E, R, 5, T, 6, Y, 7, U)
+            const row4 = {'C':'q', 'C#':'2', 'D':'w', 'D#':'3', 'E':'e', 'F':'r', 'F#':'5', 'G':'t', 'G#':'6', 'A':'y', 'A#':'7', 'B':'u'};
+            // Octave 5 mapped to number row (1, !, 8, etc. or specific top keys)
+            const row5 = {'C':'1', 'C#':'!', 'D':'8', 'D#':'9', 'E':'0'};
+
+            if (octave === 3) return row3[note] || null;
+            if (octave === 4) return row4[note] || null;
+            if (octave === 5) return row5[note] || null;
+            return null;
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = parseFloat(document.getElementById('volume-slider').value);
+                
+                // Add soft compressor to prevent clipping
+                const compressor = audioCtx.createDynamicsCompressor();
+                compressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
+                compressor.knee.setValueAtTime(30, audioCtx.currentTime);
+                compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+                compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+                compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
+                masterGain.connect(compressor);
+                compressor.connect(audioCtx.destination);
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function renderPianoKeyboard() {
+            const keyboardEl = document.getElementById('piano-keyboard');
+            keyboardEl.innerHTML = '';
+
+            // Separate white and black keys for precise visual layering
+            // In standard piano layout, white keys are laid side-by-side, black keys are positioned absolutely over them.
+            let whiteKeyIndex = 0;
+            const whiteKeyWidth = 52; // pixels
+
+            // First pass: render white keys container or layout
+            const whiteKeysContainer = document.createElement('div');
+            whiteKeysContainer.className = 'flex';
+
+            pianoKeysData.forEach((keyData) => {
+                if (!keyData.isBlack) {
+                    const keyEl = document.createElement('div');
+                    keyEl.className = 'white-key flex flex-col justify-end items-center pb-3 cursor-pointer select-none';
+                    keyEl.style.width = `${whiteKeyWidth}px`;
+                    keyEl.style.height = '220px';
+                    keyEl.setAttribute('data-note', keyData.note);
+
+                    // Note label & computer key hint
+                    keyEl.innerHTML = `
+                        <span class="text-[10px] text-slate-400 font-mono uppercase pointer-events-none">${keyData.keyboardKey ? keyData.keyboardKey : ''}</span>
+                        <span class="text-xs text-slate-600 font-semibold mt-1 pointer-events-none">${keyData.note}</span>
+                    `;
+
+                    // Mouse & Touch events
+                    keyEl.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        playNote(keyData.note, keyData.freq);
+                    });
+                    keyEl.addEventListener('mouseup', () => stopNote(keyData.note));
+                    keyEl.addEventListener('mouseleave', () => stopNote(keyData.note));
+                    
+                    keyEl.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        playNote(keyData.note, keyData.freq);
+                    });
+                    keyEl.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        stopNote(keyData.note);
+                    });
+
+                    whiteKeysContainer.appendChild(keyEl);
+                    whiteKeyIndex++;
+                }
+            });
+
+            keyboardEl.appendChild(whiteKeysContainer);
+
+            // Second pass: render black keys absolutely positioned over the white keys
+            whiteKeyIndex = 0;
+            pianoKeysData.forEach((keyData, index) => {
+                if (!keyData.isBlack) {
+                    whiteKeyIndex++;
+                } else {
+                    // Position black key between previous white key and current white key
+                    const blackKeyEl = document.createElement('div');
+                    blackKeyEl.className = 'black-key flex flex-col justify-between items-center pb-2 cursor-pointer select-none';
+                    blackKeyEl.style.width = '32px';
+                    blackKeyEl.style.height = '130px';
+                    
+                    // Calculate left offset based on whiteKeyIndex
+                    // Each white key is 52px wide. Black key sits on the border (minus 16px)
+                    const leftOffset = (whiteKeyIndex * whiteKeyWidth) - 16;
+                    blackKeyEl.style.left = `${leftOffset}px`;
+                    blackKeyEl.setAttribute('data-note', keyData.note);
+
+                    blackKeyEl.innerHTML = `
+                        <span class="text-[9px] text-slate-400 font-mono uppercase pt-1 pointer-events-none">${keyData.keyboardKey ? keyData.keyboardKey : ''}</span>
+                        <span class="text-[10px] text-slate-300 font-medium pointer-events-none">${keyData.note.replace('#', '♯')}</span>
+                    `;
+
+                    // Mouse & Touch events
+                    blackKeyEl.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        playNote(keyData.note, keyData.freq);
+                    });
+                    blackKeyEl.addEventListener('mouseup', (e) => {
+                        e.stopPropagation();
+                        stopNote(keyData.note);
+                    });
+                    blackKeyEl.addEventListener('mouseleave', (e) => {
+                        e.stopPropagation();
+                        stopNote(keyData.note);
+                    });
+
+                    blackKeyEl.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        playNote(keyData.note, keyData.freq);
+                    });
+                    blackKeyEl.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        stopNote(keyData.note);
+                    });
+
+                    keyboardEl.appendChild(blackKeyEl);
+                }
+            });
+        }
+
+        function playNote(noteName, frequency) {
+            initAudio();
+
+            // If note is already playing, stop previous instance smoothly
+            if (activeNotes.has(noteName)) {
+                stopNote(noteName);
+            }
+
+            // Highlight visual key
+            const keyElement = document.querySelector(`[data-note="${noteName}"]`);
+            if (keyElement) {
+                keyElement.classList.add('active');
+            }
+
+            // Update active note indicator
+            document.getElementById('active-note-display').innerText = noteName;
+
+            // Generate sound using current preset
+            const presetFunc = presets[currentPreset].create;
+            const synthVoice = presetFunc(frequency, audioCtx, masterGain);
+
+            activeNotes.set(noteName, {
+                synth: synthVoice,
+                keyElement: keyElement
+            });
+        }
+
+        function stopNote(noteName) {
+            if (!activeNotes.has(noteName)) return;
+
+            const noteData = activeNotes.get(noteName);
+            
+            // Remove active visual class if sustain is off or release finishes
+            if (noteData.keyElement) {
+                noteData.keyElement.classList.remove('active');
+            }
+
+            if (!sustainActive) {
+                if (noteData.synth && typeof noteData.synth.stop === 'function') {
+                    try {
+                        noteData.synth.stop(audioCtx.currentTime);
+                    } catch (e) {
+                        // Ignore if already stopped
+                    }
+                }
+                activeNotes.delete(noteName);
+                
+                // Clear active note display if no notes playing
+                if (activeNotes.size === 0) {
+                    document.getElementById('active-note-display').innerText = '-';
+                }
+            }
+        }
+
+        function renderPresetButtons() {
+            const container = document.getElementById('presets-container');
+            container.innerHTML = '';
+
+            Object.keys(presets).forEach((presetKey, idx) => {
+                const preset = presets[presetKey];
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border flex items-center gap-1.5 ${
+                    presetKey === currentPreset 
+                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.4)]' 
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 hover:border-slate-600'
+                }`;
+                
+                btn.innerHTML = `
+                    <span class="w-1.5 h-1.5 rounded-full ${presetKey === currentPreset ? 'bg-white' : 'bg-slate-500'}"></span>
+                    ${preset.name}
+                `;
+
+                btn.addEventListener('click', () => {
+                    currentPreset = presetKey;
+                    document.getElementById('current-sound-label').innerText = preset.name;
+                    renderPresetButtons();
+                });
+
+                container.appendChild(btn);
+            });
+        }
+
+        // Setup Computer Keyboard Listeners
+        const pressedKeysMap = new Set();
+
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Prevent stutter on key hold
+            const char = e.key.toLowerCase();
+
+            // Find matching piano key data
+            const foundKey = pianoKeysData.find(k => k.keyboardKey === char);
+            if (foundKey && !pressedKeysMap.has(char)) {
+                pressedKeysMap.add(char);
+                playNote(foundKey.note, foundKey.freq);
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const char = e.key.toLowerCase();
+            pressedKeysMap.delete(char);
+
+            const foundKey = pianoKeysData.find(k => k.keyboardKey === char);
+            if (foundKey) {
+                stopNote(foundKey.note);
+            }
+        });
+
+        // Master Volume & Sustain Controls
+        document.getElementById('volume-slider').addEventListener('input', (e) => {
+            if (masterGain && audioCtx) {
+                masterGain.gain.setValueAtTime(parseFloat(e.target.value), audioCtx.currentTime);
+            }
+        });
+
+        const sustainBtn = document.getElementById('sustain-btn');
+        sustainBtn.addEventListener('click', () => {
+            sustainActive = !sustainActive;
+            if (sustainActive) {
+                sustainBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-600 text-white transition border border-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]';
+                sustainBtn.innerText = 'On';
+            } else {
+                sustainBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition border border-slate-600';
+                sustainBtn.innerText = 'Off';
+                
+                // Stop all sustained notes when sustain is turned off
+                activeNotes.forEach((noteData, noteName) => {
+                    if (noteData.synth && typeof noteData.synth.stop === 'function') {
+                        noteData.synth.stop(audioCtx.currentTime);
+                    }
+                });
+                activeNotes.clear();
+                document.getElementById('active-note-display').innerText = '-';
+                
+                // Clear all visual highlights
+                document.querySelectorAll('.white-key, .black-key').forEach(el => el.classList.remove('active'));
+            }
+        });
+
+        // Initialize UI on load
+        window.addEventListener('DOMContentLoaded', () => {
+            renderPianoKeyboard();
+            renderPresetButtons();
+        });
+    </script>
+</body>
+</html>
