@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive 3-Octave Synthesizer Piano</title>
+    <title>max-studio</title>
     <!-- Tailwind CSS for modern, sleek UI styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts for typography -->
@@ -84,7 +84,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 via-sky-300 to-teal-300 bg-clip-text text-transparent">
-                        WebSynth Piano 3.0
+                        max-studio
                     </h1>
                     <p class="text-xs text-slate-400">3-Octave Polyphonic Web Audio Synthesizer</p>
                 </div>
@@ -175,71 +175,88 @@
         let sustainActive = false;
         let currentPreset = 'acoustic';
 
-        // 10 Musical Sound / Timbre Presets Definition
+        // 10 Melodic, Lush, and Rich Musical Sound / Timbre Presets Definition
         const presets = {
             acoustic: {
                 name: 'Acoustic Grand',
-                desc: 'Warm piano simulation with rich harmonics',
+                desc: 'Rich multi-layered piano with warm harmonic resonance',
                 create: (freq, ctx, output) => {
-                    // Multi-oscillator setup for acoustic piano warmth
                     const osc1 = ctx.createOscillator();
                     const osc2 = ctx.createOscillator();
+                    const osc3 = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
                     const gain = ctx.createGain();
 
                     osc1.type = 'triangle';
                     osc2.type = 'sine';
+                    osc3.type = 'sawtooth';
+
                     osc1.frequency.setValueAtTime(freq, ctx.currentTime);
                     osc2.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc3.frequency.setValueAtTime(freq, ctx.currentTime);
 
-                    // Detune slightly for chorus warmth
-                    osc2.detune.setValueAtTime(3, ctx.currentTime);
+                    osc2.detune.setValueAtTime(-4, ctx.currentTime);
+                    osc3.detune.setValueAtTime(4, ctx.currentTime);
 
-                    // Envelope
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(freq * 3.5, ctx.currentTime);
+                    filter.Q.value = 2;
+
                     const now = ctx.currentTime;
                     gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
-                    gain.gain.exponentialRampToValueAtTime(0.1, now + 0.8);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+                    gain.gain.linearRampToValueAtTime(0.45, now + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.6);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
 
-                    osc1.connect(gain);
-                    osc2.connect(gain);
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    osc3.connect(filter);
+                    filter.connect(gain);
                     gain.connect(output);
 
                     osc1.start(now);
                     osc2.start(now);
+                    osc3.start(now);
+
                     return { stop: (time) => {
                         gain.gain.cancelScheduledValues(time);
-                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.3);
-                        osc1.stop(time + 0.3);
-                        osc2.stop(time + 0.3);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.35);
+                        osc1.stop(time + 0.35);
+                        osc2.stop(time + 0.35);
+                        osc3.stop(time + 0.35);
                     }};
                 }
             },
             rhodes: {
                 name: 'Electric Piano',
-                desc: 'Classic bell-like Rhodes electric piano timbre',
+                desc: 'Mellow bell-like Rhodes timbre with tremolo warmth',
                 create: (freq, ctx, output) => {
                     const osc = ctx.createOscillator();
                     const modulator = ctx.createOscillator();
                     const modGain = ctx.createGain();
+                    const filter = ctx.createBiquadFilter();
                     const gain = ctx.createGain();
 
                     osc.type = 'sine';
                     modulator.type = 'sine';
                     
                     osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                    modulator.frequency.setValueAtTime(freq * 2, ctx.currentTime);
-                    modGain.gain.setValueAtTime(freq * 1.5, ctx.currentTime);
+                    modulator.frequency.setValueAtTime(freq * 2.01, ctx.currentTime);
+                    modGain.gain.setValueAtTime(freq * 2.2, ctx.currentTime);
 
                     modulator.connect(modGain);
                     modGain.connect(osc.frequency);
 
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(freq * 2.5, ctx.currentTime);
+
                     const now = ctx.currentTime;
                     gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.6, now + 0.01);
-                    gain.gain.exponentialRampToValueAtTime(0.05, now + 1.2);
+                    gain.gain.linearRampToValueAtTime(0.5, now + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.08, now + 1.4);
 
-                    osc.connect(gain);
+                    osc.connect(filter);
+                    filter.connect(gain);
                     gain.connect(output);
 
                     osc.start(now);
@@ -254,211 +271,7 @@
             },
             synthLead: {
                 name: 'Synth Lead',
-                desc: 'Piercing sawtooth lead with lowpass filter sweep',
-                create: (freq, ctx, output) => {
-                    const osc = ctx.createOscillator();
-                    const filter = ctx.createBiquadFilter();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(800, ctx.currentTime);
-                    filter.frequency.exponentialRampToValueAtTime(3500, ctx.currentTime + 0.2);
-                    filter.Q.value = 6;
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.35, now + 0.04);
-                    gain.gain.setValueAtTime(0.3, now + 0.2);
-
-                    osc.connect(filter);
-                    filter.connect(gain);
-                    gain.connect(output);
-
-                    osc.start(now);
-                    return { stop: (time) => {
-                        gain.gain.cancelScheduledValues(time);
-                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
-                        osc.stop(time + 0.25);
-                    }};
-                }
-            },
-            synthBass: {
-                name: 'Synth Bass',
-                desc: 'Subterranean square wave bass with punchy filter',
-                create: (freq, ctx, output) => {
-                    const osc = ctx.createOscillator();
-                    const filter = ctx.createBiquadFilter();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(freq / 2, ctx.currentTime); // Lower octave bass
-
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(200, ctx.currentTime);
-                    filter.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
-                    filter.Q.value = 8;
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.5, now + 0.02);
-
-                    osc.connect(filter);
-                    filter.connect(gain);
-                    gain.connect(output);
-
-                    osc.start(now);
-                    return { stop: (time) => {
-                        gain.gain.cancelScheduledValues(time);
-                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.2);
-                        osc.stop(time + 0.2);
-                    }};
-                }
-            },
-            organ: {
-                name: 'Pipe Organ',
-                desc: 'Full harmonic church organ timbre',
-                create: (freq, ctx, output) => {
-                    const osc1 = ctx.createOscillator();
-                    const osc2 = ctx.createOscillator();
-                    const osc3 = ctx.createOscillator();
-                    const gain = ctx.createGain();
-
-                    osc1.type = 'sine';
-                    osc2.type = 'sawtooth';
-                    osc3.type = 'square';
-
-                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
-                    osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime); // Octave up
-                    osc3.frequency.setValueAtTime(freq * 1.5, ctx.currentTime); // Fifth
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.25, now + 0.05);
-
-                    osc1.connect(gain);
-                    osc2.connect(gain);
-                    osc3.connect(gain);
-                    gain.connect(output);
-
-                    osc1.start(now);
-                    osc2.start(now);
-                    osc3.start(now);
-                    return { stop: (time) => {
-                        gain.gain.cancelScheduledValues(time);
-                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.08);
-                        osc1.stop(time + 0.08);
-                        osc2.stop(time + 0.08);
-                        osc3.stop(time + 0.08);
-                    }};
-                }
-            },
-            marimba: {
-                name: 'Marimba',
-                desc: 'Wooden mallet percussion timbre',
-                create: (freq, ctx, output) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.7, now + 0.005);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-
-                    osc.connect(gain);
-                    gain.connect(output);
-
-                    osc.start(now);
-                    return { stop: (time) => {
-                        osc.stop(time);
-                    }};
-                }
-            },
-            pizzicato: {
-                name: 'Plucked String',
-                desc: 'Orchestral pizzicato string simulation',
-                create: (freq, ctx, output) => {
-                    const osc = ctx.createOscillator();
-                    const filter = ctx.createBiquadFilter();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(freq * 3, ctx.currentTime);
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.5, now + 0.01);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
-
-                    osc.connect(filter);
-                    filter.connect(gain);
-                    gain.connect(output);
-
-                    osc.start(now);
-                    return { stop: (time) => {
-                        osc.stop(time);
-                    }};
-                }
-            },
-            bell: {
-                name: 'Crystal Bell',
-                desc: 'Shimmering high-frequency metallic bell tone',
-                create: (freq, ctx, output) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq * 4, ctx.currentTime); // Higher overtone
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.4, now + 0.01);
-                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.5);
-
-                    osc.connect(gain);
-                    gain.connect(output);
-
-                    osc.start(now);
-                    return { stop: (time) => {
-                        gain.gain.cancelScheduledValues(time);
-                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.5);
-                        osc.stop(time + 0.5);
-                    }};
-                }
-            },
-            chiptune: {
-                name: 'Chiptune Square',
-                desc: '8-bit retro gaming square wave sound',
-                create: (freq, ctx, output) => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-                    const now = ctx.currentTime;
-                    gain.gain.setValueAtTime(0.3, now);
-
-                    osc.connect(gain);
-                    gain.connect(output);
-
-                    osc.start(now);
-                    return { stop: (time) => {
-                        osc.stop(time);
-                    }};
-                }
-            },
-            warmPad: {
-                name: 'Warm Synth Pad',
-                desc: 'Lush atmospheric synthesizer pad',
+                desc: 'Lush singing lead with smooth filter modulation',
                 create: (freq, ctx, output) => {
                     const osc1 = ctx.createOscillator();
                     const osc2 = ctx.createOscillator();
@@ -466,16 +279,19 @@
                     const gain = ctx.createGain();
 
                     osc1.type = 'sawtooth';
-                    osc2.type = 'sawtooth';
+                    osc2.type = 'square';
                     osc1.frequency.setValueAtTime(freq, ctx.currentTime);
-                    osc2.frequency.setValueAtTime(freq * 1.008, ctx.currentTime); // Chorus detune
+                    osc2.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.detune.setValueAtTime(6, ctx.currentTime);
 
                     filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(1000, ctx.currentTime);
+                    filter.frequency.setValueAtTime(600, ctx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(3200, ctx.currentTime + 0.15);
+                    filter.Q.value = 5;
 
                     const now = ctx.currentTime;
                     gain.gain.setValueAtTime(0, now);
-                    gain.gain.linearRampToValueAtTime(0.25, now + 0.4); // Slow attack
+                    gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
 
                     osc1.connect(filter);
                     osc2.connect(filter);
@@ -486,9 +302,268 @@
                     osc2.start(now);
                     return { stop: (time) => {
                         gain.gain.cancelScheduledValues(time);
-                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.8); // Slow release
-                        osc1.stop(time + 0.8);
-                        osc2.stop(time + 0.8);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.3);
+                        osc1.stop(time + 0.3);
+                        osc2.stop(time + 0.3);
+                    }};
+                }
+            },
+            synthBass: {
+                name: 'Synth Bass',
+                desc: 'Warm analog bass with deep harmonic resonance',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'square';
+                    osc1.frequency.setValueAtTime(freq / 2, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq / 2, ctx.currentTime);
+                    osc2.detune.setValueAtTime(-5, ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(150, ctx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.08);
+                    filter.Q.value = 7;
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.45, now + 0.02);
+
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+                        osc1.stop(time + 0.25);
+                        osc2.stop(time + 0.25);
+                    }};
+                }
+            },
+            organ: {
+                name: 'Pipe Organ',
+                desc: 'Majestic cathedral pipe organ with rich chorus',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const osc3 = ctx.createOscillator();
+                    const osc4 = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sine';
+                    osc2.type = 'sawtooth';
+                    osc3.type = 'square';
+                    osc4.type = 'triangle';
+
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime);
+                    osc3.frequency.setValueAtTime(freq * 1.5, ctx.currentTime);
+                    osc4.frequency.setValueAtTime(freq * 0.5, ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(2500, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    osc3.connect(filter);
+                    osc4.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc3.start(now);
+                    osc4.start(now);
+
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.12);
+                        osc1.stop(time + 0.12);
+                        osc2.stop(time + 0.12);
+                        osc3.stop(time + 0.12);
+                        osc4.stop(time + 0.12);
+                    }};
+                }
+            },
+            marimba: {
+                name: 'Marimba',
+                desc: 'Warm acoustic wooden mallet percussion',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sine';
+                    osc2.type = 'triangle';
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq * 4, ctx.currentTime); // Wooden transient overtone
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.6, now + 0.004);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    return { stop: (time) => {
+                        osc1.stop(time);
+                        osc2.stop(time);
+                    }};
+                }
+            },
+            pizzicato: {
+                name: 'Plucked String',
+                desc: 'Lush acoustic plucked orchestral string',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'triangle';
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(freq * 3.2, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.45, now + 0.012);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    return { stop: (time) => {
+                        osc1.stop(time);
+                        osc2.stop(time);
+                    }};
+                }
+            },
+            bell: {
+                name: 'Crystal Bell',
+                desc: 'Shimmering celestial harmonic bell tone',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sine';
+                    osc2.type = 'sine';
+                    osc1.frequency.setValueAtTime(freq * 2, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq * 6.02, ctx.currentTime); // Metallic chime
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.35, now + 0.008);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.6);
+                        osc1.stop(time + 0.6);
+                        osc2.stop(time + 0.6);
+                    }};
+                }
+            },
+            chiptune: {
+                name: 'Chiptune Square',
+                desc: 'Melodic retro 8-bit arcade synthesizer',
+                create: (freq, ctx, output) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.28, now + 0.01);
+
+                    osc.connect(gain);
+                    gain.connect(output);
+
+                    osc.start(now);
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.05);
+                        osc.stop(time + 0.05);
+                    }};
+                }
+            },
+            warmPad: {
+                name: 'Warm Synth Pad',
+                desc: 'Atmospheric lush cinematic string pad with slow swell',
+                create: (freq, ctx, output) => {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const osc3 = ctx.createOscillator();
+                    const filter = ctx.createBiquadFilter();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'triangle';
+                    osc3.type = 'sawtooth';
+
+                    osc1.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(freq, ctx.currentTime);
+                    osc3.frequency.setValueAtTime(freq, ctx.currentTime);
+
+                    osc1.detune.setValueAtTime(-7, ctx.currentTime);
+                    osc3.detune.setValueAtTime(7, ctx.currentTime);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(800, ctx.currentTime);
+                    filter.Q.value = 3;
+
+                    const now = ctx.currentTime;
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.25, now + 0.35); // Gentle attack swell
+
+                    osc1.connect(filter);
+                    osc2.connect(filter);
+                    osc3.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(output);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc3.start(now);
+
+                    return { stop: (time) => {
+                        gain.gain.cancelScheduledValues(time);
+                        gain.gain.linearRampToValueAtTime(0.0001, time + 0.9); // Lush long release
+                        osc1.stop(time + 0.9);
+                        osc2.stop(time + 0.9);
+                        osc3.stop(time + 0.9);
                     }};
                 }
             }
@@ -568,105 +643,129 @@
             const keyboardEl = document.getElementById('piano-keyboard');
             keyboardEl.innerHTML = '';
 
-            // Separate white and black keys for precise visual layering
-            // In standard piano layout, white keys are laid side-by-side, black keys are positioned absolutely over them.
-            let whiteKeyIndex = 0;
-            const whiteKeyWidth = 52; // pixels
+            // Standard acoustic piano key dimensions
+            const whiteKeyWidth = 56; // px width per white key
+            const whiteKeyHeight = 220; // px height
+            const blackKeyWidth = 34; // px width per black key
+            const blackKeyHeight = 135; // px height
 
-            // First pass: render white keys container or layout
-            const whiteKeysContainer = document.createElement('div');
-            whiteKeysContainer.className = 'flex';
+            // Container for all keys with relative positioning
+            const keysWrapper = document.createElement('div');
+            keysWrapper.className = 'relative flex';
 
+            // Filter white and black keys cleanly
+            const whiteKeys = pianoKeysData.filter(k => !k.isBlack);
+            const blackKeys = pianoKeysData.filter(k => k.isBlack);
+
+            // Map each white key element reference
+            const whiteKeyElements = {};
+
+            // 1. Render all white keys side by side
+            whiteKeys.forEach((keyData, idx) => {
+                const keyEl = document.createElement('div');
+                keyEl.className = 'white-key flex flex-col justify-end items-center pb-3 cursor-pointer select-none';
+                keyEl.style.width = `${whiteKeyWidth}px`;
+                keyEl.style.height = `${whiteKeyHeight}px`;
+                keyEl.setAttribute('data-note', keyData.note);
+
+                keyEl.innerHTML = `
+                    <span class="text-[10px] text-slate-400 font-mono uppercase pointer-events-none">${keyData.keyboardKey ? keyData.keyboardKey : ''}</span>
+                    <span class="text-xs text-slate-600 font-semibold mt-1 pointer-events-none">${keyData.note}</span>
+                `;
+
+                keyEl.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    playNote(keyData.note, keyData.freq);
+                });
+                keyEl.addEventListener('mouseup', () => stopNote(keyData.note));
+                keyEl.addEventListener('mouseleave', () => stopNote(keyData.note));
+                
+                keyEl.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    playNote(keyData.note, keyData.freq);
+                });
+                keyEl.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    stopNote(keyData.note);
+                });
+
+                keysWrapper.appendChild(keyEl);
+                whiteKeyElements[keyData.note] = { index: idx, element: keyEl };
+            });
+
+            // 2. Precisely calculate and render black keys (accidentals) over the exact boundaries of white keys
+            // Pattern of notes in an octave: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+            // Black keys sit precisely between:
+            // C & D (C#) -> right edge of white key C
+            // D & E (D#) -> right edge of white key D
+            // F & G (F#) -> right edge of white key F
+            // G & A (G#) -> right edge of white key G
+            // A & B (A#) -> right edge of white key A
+            
             pianoKeysData.forEach((keyData) => {
-                if (!keyData.isBlack) {
-                    const keyEl = document.createElement('div');
-                    keyEl.className = 'white-key flex flex-col justify-end items-center pb-3 cursor-pointer select-none';
-                    keyEl.style.width = `${whiteKeyWidth}px`;
-                    keyEl.style.height = '220px';
-                    keyEl.setAttribute('data-note', keyData.note);
-
-                    // Note label & computer key hint
-                    keyEl.innerHTML = `
-                        <span class="text-[10px] text-slate-400 font-mono uppercase pointer-events-none">${keyData.keyboardKey ? keyData.keyboardKey : ''}</span>
-                        <span class="text-xs text-slate-600 font-semibold mt-1 pointer-events-none">${keyData.note}</span>
-                    `;
-
-                    // Mouse & Touch events
-                    keyEl.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        playNote(keyData.note, keyData.freq);
-                    });
-                    keyEl.addEventListener('mouseup', () => stopNote(keyData.note));
-                    keyEl.addEventListener('mouseleave', () => stopNote(keyData.note));
+                if (keyData.isBlack) {
+                    // Determine index of the white key immediately to its left
+                    // Parse base note and octave
+                    const noteChar = keyData.note.substring(0, 1);
+                    const octaveNum = parseInt(keyData.note.substring(2));
                     
-                    keyEl.addEventListener('touchstart', (e) => {
-                        e.preventDefault();
-                        playNote(keyData.note, keyData.freq);
-                    });
-                    keyEl.addEventListener('touchend', (e) => {
-                        e.preventDefault();
-                        stopNote(keyData.note);
-                    });
+                    // Find corresponding white key index in whiteKeys array
+                    let leftWhiteKeyNote = '';
+                    if (keyData.note.startsWith('C#')) leftWhiteKeyNote = `C${octaveNum}`;
+                    else if (keyData.note.startsWith('D#')) leftWhiteKeyNote = `D${octaveNum}`;
+                    else if (keyData.note.startsWith('F#')) leftWhiteKeyNote = `F${octaveNum}`;
+                    else if (keyData.note.startsWith('G#')) leftWhiteKeyNote = `G${octaveNum}`;
+                    else if (keyData.note.startsWith('A#')) leftWhiteKeyNote = `A${octaveNum}`;
 
-                    whiteKeysContainer.appendChild(keyEl);
-                    whiteKeyIndex++;
+                    const targetWhiteKeyObj = whiteKeyElements[leftWhiteKeyNote];
+                    if (targetWhiteKeyObj) {
+                        const whiteIdx = targetWhiteKeyObj.index;
+                        // Center black key over the border between whiteIdx and whiteIdx + 1
+                        const leftOffset = ((whiteIdx + 1) * whiteKeyWidth) - (blackKeyWidth / 2);
+
+                        const blackKeyEl = document.createElement('div');
+                        blackKeyEl.className = 'black-key flex flex-col justify-between items-center pb-2 cursor-pointer select-none';
+                        blackKeyEl.style.width = `${blackKeyWidth}px`;
+                        blackKeyEl.style.height = `${blackKeyHeight}px`;
+                        blackKeyEl.style.left = `${leftOffset}px`;
+                        blackKeyEl.setAttribute('data-note', keyData.note);
+
+                        blackKeyEl.innerHTML = `
+                            <span class="text-[9px] text-slate-400 font-mono uppercase pt-1 pointer-events-none">${keyData.keyboardKey ? keyData.keyboardKey : ''}</span>
+                            <span class="text-[10px] text-slate-300 font-medium pointer-events-none">${keyData.note.replace('#', '♯')}</span>
+                        `;
+
+                        blackKeyEl.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            playNote(keyData.note, keyData.freq);
+                        });
+                        blackKeyEl.addEventListener('mouseup', (e) => {
+                            e.stopPropagation();
+                            stopNote(keyData.note);
+                        });
+                        blackKeyEl.addEventListener('mouseleave', (e) => {
+                            e.stopPropagation();
+                            stopNote(keyData.note);
+                        });
+
+                        blackKeyEl.addEventListener('touchstart', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            playNote(keyData.note, keyData.freq);
+                        });
+                        blackKeyEl.addEventListener('touchend', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            stopNote(keyData.note);
+                        });
+
+                        keysWrapper.appendChild(blackKeyEl);
+                    }
                 }
             });
 
-            keyboardEl.appendChild(whiteKeysContainer);
-
-            // Second pass: render black keys absolutely positioned over the white keys
-            whiteKeyIndex = 0;
-            pianoKeysData.forEach((keyData, index) => {
-                if (!keyData.isBlack) {
-                    whiteKeyIndex++;
-                } else {
-                    // Position black key between previous white key and current white key
-                    const blackKeyEl = document.createElement('div');
-                    blackKeyEl.className = 'black-key flex flex-col justify-between items-center pb-2 cursor-pointer select-none';
-                    blackKeyEl.style.width = '32px';
-                    blackKeyEl.style.height = '130px';
-                    
-                    // Calculate left offset based on whiteKeyIndex
-                    // Each white key is 52px wide. Black key sits on the border (minus 16px)
-                    const leftOffset = (whiteKeyIndex * whiteKeyWidth) - 16;
-                    blackKeyEl.style.left = `${leftOffset}px`;
-                    blackKeyEl.setAttribute('data-note', keyData.note);
-
-                    blackKeyEl.innerHTML = `
-                        <span class="text-[9px] text-slate-400 font-mono uppercase pt-1 pointer-events-none">${keyData.keyboardKey ? keyData.keyboardKey : ''}</span>
-                        <span class="text-[10px] text-slate-300 font-medium pointer-events-none">${keyData.note.replace('#', '♯')}</span>
-                    `;
-
-                    // Mouse & Touch events
-                    blackKeyEl.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        playNote(keyData.note, keyData.freq);
-                    });
-                    blackKeyEl.addEventListener('mouseup', (e) => {
-                        e.stopPropagation();
-                        stopNote(keyData.note);
-                    });
-                    blackKeyEl.addEventListener('mouseleave', (e) => {
-                        e.stopPropagation();
-                        stopNote(keyData.note);
-                    });
-
-                    blackKeyEl.addEventListener('touchstart', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        playNote(keyData.note, keyData.freq);
-                    });
-                    blackKeyEl.addEventListener('touchend', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        stopNote(keyData.note);
-                    });
-
-                    keyboardEl.appendChild(blackKeyEl);
-                }
-            });
+            keyboardEl.appendChild(keysWrapper);
         }
 
         function playNote(noteName, frequency) {
